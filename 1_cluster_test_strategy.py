@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import List
 
 # Generate run_id and set params for run
-run_id = str(dt.datetime.now().strftime("%m%d_%H%M%S_") + "rec_0_def")
+job_id = "rec_0_def"
+
+run_id = str(dt.datetime.now().strftime("%m%d_%H%M%S_") + f"{job_id}")
 records = 0
 read_min_match = 0.1
 read_min_freq = 2
@@ -84,7 +86,7 @@ class TestHTSinfer:
         # Read in sample CSV file using pandas
         source = pd.read_csv(MINED_DATA, sep='\t')
         # Group data into chunks of 10 samples
-        chunks = [source[i:i+5] for i in range(1, len(source) + 1, 5)]
+        chunks = [source[i:i+20] for i in range(1, len(source) + 1, 20)]
 
         # Create run directory to store job scripts
         JOBS_DIR = "/".join([str(RUN_DIR), '_job_scripts'])
@@ -100,7 +102,7 @@ class TestHTSinfer:
             # Write Slurm job script
             with open(job_script_filename, 'w') as f:
                 f.write('#!/bin/bash\n\n')
-                f.write(f'#SBATCH --job-name=htsinfer_0def_{i}\n')
+                f.write(f'#SBATCH --job-name=htsinfer_{job_id}_{i}\n')
                 f.write('#SBATCH --cpus-per-task=4\n')
                 f.write('#SBATCH --mem-per-cpu=8G\n')
                 f.write('#SBATCH --time=7-00:00:00\n')
