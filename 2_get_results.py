@@ -4,14 +4,16 @@ import os
 import json
 import pandas as pd
 import numpy as np
+import subprocess as sp
+from datetime import datetime
 from pathlib import Path
 
-run_id = "0623_092201_zavolan_rnaseq"
+run_id = "0621_102445_rec_1k"
 
 RESULTS_HTS_DIR = (Path(__file__).resolve().parent /
                    "results_htsinfer")
 MINED_DATA = (Path(__file__).resolve().parent /
-              "zavolan_rnaseq_samples_filtered.tsv")
+              "mined_test_data.tsv")
 
 # Read in the tsv file
 data = pd.read_csv(MINED_DATA, sep='\t')
@@ -23,8 +25,8 @@ for index, row in data.iterrows():
     try:
         sample = row['sample']
         layout = row['layout']
-        fastq1 = row['fastq1']
-        fastq2 = row['fastq2']
+        # fastq1 = row['fastq1']
+        # fastq2 = row['fastq2']
         results_folder = run_id
 
         if layout == 'SE':
@@ -47,7 +49,7 @@ for index, row in data.iterrows():
             with open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_library_source",
-                    f"library_source_{fastq1}.fastq.json"
+                    f"library_source_{sample}.fastq.json"
                 ), encoding="utf-8"
             ) as lib_file:
                 lib_model = json.load(lib_file)
@@ -65,7 +67,7 @@ for index, row in data.iterrows():
             with open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_read_layout",
-                    f"read_layout_{fastq1}.fastq.json"
+                    f"read_layout_{sample}.fastq.json"
                 ), encoding="utf-8"
             ) as read_file:
                 read_model = json.load(read_file)
@@ -79,7 +81,7 @@ for index, row in data.iterrows():
                     '2_adapt_2': np.nan,
                     '2_percent_2': np.nan
                 })
-            
+
         elif layout == 'PE':
             # 1. Read in final results from _results
             with open(
@@ -91,7 +93,7 @@ for index, row in data.iterrows():
                 result_model = json.load(json_file)
                 table_data[index] = {
                     'pred_org': result_model['library_source']['file_1']['short_name'],
-                    'pred_orient': result_model['read_orientation']['file_1'],
+                    'pred_orient': result_model['read_orientation']['relationship'],
                     'pred_adapter': result_model['read_layout']['file_1']['adapt_3'],
                     'pred_length_min_1': result_model['library_stats']['file_1']['read_length']['min'],
                     'pred_length_max_1': result_model['library_stats']['file_1']['read_length']['max'],
@@ -102,12 +104,12 @@ for index, row in data.iterrows():
             with open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_library_source",
-                    f"library_source_{fastq1}.fastq.json"
+                    f"library_source_{sample}_1.fastq.json"
                 ), encoding="utf-8"
             ) as json_file_1, open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_library_source",
-                    f"library_source_{fastq2}.fastq.json"
+                    f"library_source_{sample}_2.fastq.json"
                 ), encoding="utf-8"
             ) as json_file_2:
                 lib_model_1 = json.load(json_file_1)
@@ -126,12 +128,12 @@ for index, row in data.iterrows():
             with open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_read_layout",
-                    f"read_layout_{fastq1}.fastq.json"
+                    f"read_layout_{sample}_1.fastq.json"
                 ), encoding="utf-8"
             ) as read_file_1, open(
                 os.path.join(
                     RESULTS_HTS_DIR, results_folder, "_results_read_layout",
-                    f"read_layout_{fastq2}.fastq.json"
+                    f"read_layout_{sample}_2.fastq.json"
                 ), encoding="utf-8"
             ) as read_file_2:
                 read_model_1 = json.load(read_file_1)
@@ -146,6 +148,28 @@ for index, row in data.iterrows():
                     '2_adapt_2': read_model_2['data'][1][0],
                     '2_percent_2': read_model_2['data'][1][1]
                 })
+
+        # Additional code to read error file
+        error_file = os.path.join(
+            RESULTS_HTS_DIR, results_folder, "_results",
+            f"{sample}_error.txt"
+        )
+
+        proc_start = datetime.strptime(sp.check_output(
+            f"grep 'Processing read file 1:' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'", 
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        proc_end = datetime.strptime(sp.check_output(
+            f"awk -v n=2 '/Processing read file 1:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'", 
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+
+        # print(f"Start: {proc_start}, type: {type(proc_start)}")
+        proc_time = proc_end - proc_start
+        table_data[index].update({
+            'processing_time': proc_time,
+        })
+
     except (FileNotFoundError, json.decoder.JSONDecodeError):
         table_data[index] = {
             key: np.nan for key in [
@@ -159,6 +183,7 @@ for index, row in data.iterrows():
                 }
     continue
 
+print(pd.DataFrame.from_dict(table_data, orient='index'))
 # Concatenate the original data with the graph data
 final_result = pd.concat([data, pd.DataFrame.from_dict(table_data, orient='index')], axis=1, join="inner")
 
@@ -172,12 +197,15 @@ final_result['match_org'] = np.where(
                     False
                 )
             )
+final_result['match_orient'] = np.where(
+    final_result['pred_orient'] ==
+    final_result['orient'], True, False)
+final_result['match_adapter'] = final_result.apply(
+    lambda x: str(x.pred_adapter) in str(x.adapter), axis=1)
 final_result['match_length'] = np.where(
     final_result['pred_length_max_1'] ==
     final_result['length_max_1'], True, False)
-final_result['match_adapter'] = final_result.apply(
-    lambda x: str(x.pred_adapter) in str(x.adapter), axis=1)
 
 # Write result to csv file
-pd.DataFrame.to_csv(final_result, 'zavolan_rnaseq_samples_filtered_result.csv',
+pd.DataFrame.to_csv(final_result, f"{run_id}_result.csv",
                     index=False)

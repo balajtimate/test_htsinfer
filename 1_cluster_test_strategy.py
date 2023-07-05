@@ -11,7 +11,7 @@ from typing import List
 job_id = "rec_0_def"
 
 run_id = str(dt.datetime.now().strftime("%m%d_%H%M%S_") + f"{job_id}")
-records = 0
+records = 1000000
 read_min_match = 0.1
 read_min_freq = 2
 lib_min_match = 2
@@ -105,8 +105,8 @@ class TestHTSinfer:
                 f.write(f'#SBATCH --job-name=htsinfer_{job_id}_{i}\n')
                 f.write('#SBATCH --cpus-per-task=4\n')
                 f.write('#SBATCH --mem-per-cpu=8G\n')
-                f.write('#SBATCH --time=7-00:00:00\n')
-                f.write('#SBATCH --qos=1week\n')
+                f.write('#SBATCH --time=6:00:00\n')
+                f.write('#SBATCH --qos=6hours\n')
                 f.write('#SBATCH --output=/dev/null\n')
                 f.write('#SBATCH --error=/dev/null\n\n')
                 f.write('source /scicore/home/zavolan/${USER}/.bashrc\n')
