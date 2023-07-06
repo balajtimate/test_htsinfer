@@ -8,7 +8,7 @@ import subprocess as sp
 from datetime import datetime
 from pathlib import Path
 
-run_id = "0621_102445_rec_1k"
+run_id = str(input("Run ID: "))
 
 RESULTS_HTS_DIR = (Path(__file__).resolve().parent /
                    "results_htsinfer")
@@ -25,8 +25,6 @@ for index, row in data.iterrows():
     try:
         sample = row['sample']
         layout = row['layout']
-        # fastq1 = row['fastq1']
-        # fastq2 = row['fastq2']
         results_folder = run_id
 
         if layout == 'SE':
@@ -155,22 +153,87 @@ for index, row in data.iterrows():
             f"{sample}_error.txt"
         )
 
+        # 1. Processing reads
         proc_start = datetime.strptime(sp.check_output(
-            f"grep 'Processing read file 1:' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'", 
+            f"grep 'Processing read file 1:' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         proc_end = datetime.strptime(sp.check_output(
-            f"awk -v n=2 '/Processing read file 1:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'", 
+            f"awk -v n=2 '/Processing read file 1:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
-
-        # print(f"Start: {proc_start}, type: {type(proc_start)}")
-        proc_time = proc_end - proc_start
         table_data[index].update({
-            'processing_time': proc_time,
+            'processing_time': (proc_end - proc_start).total_seconds(),
         })
 
-    except (FileNotFoundError, json.decoder.JSONDecodeError):
+        # 2. Extract read length
+        extract_start = datetime.strptime(sp.check_output(
+            f"awk -v n=2 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        extract_end = datetime.strptime(sp.check_output(
+            f"awk -v n=3 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        table_data[index].update({
+            'extract_time': (extract_end - extract_start).total_seconds(),
+        })
+
+        # 3. Kallisto quantification
+        kallisto_start = datetime.strptime(sp.check_output(
+            f"awk -v n=3 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        kallisto_end = datetime.strptime(sp.check_output(
+            f"awk -v n=4 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        table_data[index].update({
+            'kallisto_time': (kallisto_end - kallisto_start).total_seconds(),
+        })
+
+        # 4. Align reads with STAR
+        align_start = datetime.strptime(sp.check_output(
+            f"grep 'Aligning reads with STAR' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        align_end = datetime.strptime(sp.check_output(
+            f"awk -v n=1 '/Aligning reads with STAR/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        table_data[index].update({
+            'align_time': (align_end - align_start).total_seconds(),
+        })
+
+        # 5. Parse with Cutadapt
+        cutadapt_start = datetime.strptime(sp.check_output(
+            f"awk -v n=2 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        cutadapt_end = datetime.strptime(sp.check_output(
+            f"awk -v n=3 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        table_data[index].update({
+            'cutadapt_time': (cutadapt_end - cutadapt_start).total_seconds(),
+        })
+
+        # 6. Total time
+        total_start = datetime.strptime(sp.check_output(
+            f"grep 'Started HTSinfer' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        total_end = datetime.strptime(sp.check_output(
+            f"grep 'INFO] Done' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            shell=True
+        ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
+        table_data[index].update({
+            'total_time': (total_end - total_start).total_seconds(),
+        })
+
+    except (
+        FileNotFoundError, json.decoder.JSONDecodeError, sp.CalledProcessError
+        ):
         table_data[index] = {
             key: np.nan for key in [
                 'pred_org', 'pred_orient', 'pred_adapter',
@@ -178,12 +241,15 @@ for index, row in data.iterrows():
                 '1_tpm_1', '1_org_1', '1_tpm_2', '1_org_2',
                 '2_tpm_1', '2_org_1', '2_tpm_2', '2_org_2',
                 '1_adapt_1', '1_percent_1', '1_adapt_2', '1_percent_2',
-                '2_adapt_1', '2_percent_1', '2_adapt_2', '2_percent_2'
+                '2_adapt_1', '2_percent_1', '2_adapt_2', '2_percent_2',
+                'processing_time', 'extract_time', 'kallisto_time',
+                'align_time',  'cutadapt_time', 'total_time'
                 ]
                 }
     continue
 
 print(pd.DataFrame.from_dict(table_data, orient='index'))
+
 # Concatenate the original data with the graph data
 final_result = pd.concat([data, pd.DataFrame.from_dict(table_data, orient='index')], axis=1, join="inner")
 
