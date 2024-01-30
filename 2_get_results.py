@@ -2,18 +2,19 @@
 
 import os
 import json
-import pandas as pd
-import numpy as np
 import subprocess as sp
 from datetime import datetime
 from pathlib import Path
+import pandas as pd
+import numpy as np
+import math
 
 run_id = str(input("Run ID: "))
 
 RESULTS_HTS_DIR = (Path(__file__).resolve().parent /
                    "results_htsinfer")
 MINED_DATA = (Path(__file__).resolve().parent /
-              "mined_test_data.tsv")
+              "mined_test_data_all.tsv")
 
 # Read in the tsv file
 data = pd.read_csv(MINED_DATA, sep='\t')
@@ -40,8 +41,14 @@ for index, row in data.iterrows():
                     'pred_adapter': result_model['read_layout']['file_1']['adapt_3'],
                     'pred_length_min_1': result_model['library_stats']['file_1']['read_length']['min'],
                     'pred_length_max_1': result_model['library_stats']['file_1']['read_length']['max'],
+                    'pred_length_mean_1': float(result_model['library_stats']['file_1']['read_length']['mean']),
+                    'pred_length_median_1': result_model['library_stats']['file_1']['read_length']['median'],
+                    'pred_length_mode_1': result_model['library_stats']['file_1']['read_length']['mode'],
                     'pred_length_min_2': np.nan,
-                    'pred_length_max_2': np.nan
+                    'pred_length_max_2': np.nan,
+                    'pred_length_mean_2': np.nan,
+                    'pred_length_median_2': np.nan,
+                    'pred_length_mode_2': np.nan,
                 }
             # 2. Read in library_source results
             with open(
@@ -56,10 +63,14 @@ for index, row in data.iterrows():
                     '1_org_1': lib_model['data'][0][1][0],
                     '1_tpm_2': lib_model['data'][1][0],
                     '1_org_2': lib_model['data'][1][1][0],
+                    '1_tpm_3': lib_model['data'][2][0],
+                    '1_org_3': lib_model['data'][2][1][0],
                     '2_tpm_1': np.nan,
                     '2_org_1': np.nan,
                     '2_tpm_2': np.nan,
-                    '2_org_2': np.nan
+                    '2_org_2': np.nan,
+                    '2_tpm_3': np.nan,
+                    '2_org_3': np.nan
                 })
             # 3. Read in read_layout results
             with open(
@@ -95,8 +106,14 @@ for index, row in data.iterrows():
                     'pred_adapter': result_model['read_layout']['file_1']['adapt_3'],
                     'pred_length_min_1': result_model['library_stats']['file_1']['read_length']['min'],
                     'pred_length_max_1': result_model['library_stats']['file_1']['read_length']['max'],
+                    'pred_length_mean_1': float(result_model['library_stats']['file_1']['read_length']['mean']),
+                    'pred_length_median_1': result_model['library_stats']['file_1']['read_length']['median'],
+                    'pred_length_mode_1': result_model['library_stats']['file_1']['read_length']['mode'],
                     'pred_length_min_2': result_model['library_stats']['file_2']['read_length']['min'],
-                    'pred_length_max_2': result_model['library_stats']['file_2']['read_length']['max']
+                    'pred_length_max_2': result_model['library_stats']['file_2']['read_length']['max'],
+                    'pred_length_mean_2': float(result_model['library_stats']['file_2']['read_length']['mean']),
+                    'pred_length_median_2': result_model['library_stats']['file_2']['read_length']['median'],
+                    'pred_length_mode_2': result_model['library_stats']['file_2']['read_length']['mode'],
                 }
             # 2. Read in library_source results
             with open(
@@ -117,10 +134,14 @@ for index, row in data.iterrows():
                     '1_org_1': lib_model_1['data'][0][1][0],
                     '1_tpm_2': lib_model_1['data'][1][0],
                     '1_org_2': lib_model_1['data'][1][1][0],
+                    '1_tpm_3': lib_model_1['data'][2][0],
+                    '1_org_3': lib_model_1['data'][2][1][0],
                     '2_tpm_1': lib_model_2['data'][0][0],
                     '2_org_1': lib_model_2['data'][0][1][0],
                     '2_tpm_2': lib_model_2['data'][1][0],
-                    '2_org_2': lib_model_2['data'][1][1][0]
+                    '2_org_2': lib_model_2['data'][1][1][0],
+                    '2_tpm_3': lib_model_2['data'][2][0],
+                    '2_org_3': lib_model_2['data'][2][1][0]
                 })
             # 3. Read in read_layout results
             with open(
@@ -231,46 +252,130 @@ for index, row in data.iterrows():
             'total_time': (total_end - total_start).total_seconds(),
         })
 
+        # Orientation percentage
+        orient_percent = sp.check_output(
+            f"grep 'DEBUG] Fraction of states:' {error_file} | awk -F'Fraction of states: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'orientation_percent': orient_percent,
+        })
+
+        # Seq ID format
+        seq_id_format = sp.check_output(
+            f"grep 'Sequence identifier format: Casava' {error_file} | awk -F'Sequence identifier format: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'seq_id_format': seq_id_format,
+        })
+
+        # First mapped reads
+        aligned_1 = sp.check_output(
+            f"grep 'Number of aligned reads file 1:' {error_file} | awk -F'Number of aligned reads file 1: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'aligned_reads_number_1': aligned_1,
+        })
+
+        # Second mapped reads
+        aligned_2 = sp.check_output(
+            f"grep 'Number of aligned reads file 2:' {error_file} | awk -F'Number of aligned reads file 2: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'aligned_reads_number_2': aligned_2,
+        })
+
+        # Concordant reads
+        concord = sp.check_output(
+            f"grep 'Number of concordant reads:' {error_file} | awk -F'Number of concordant reads: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'concordant_reads': concord,
+        })
+
+        # Library types
+        lib_types = sp.check_output(
+            f"grep 'Library type determined: ' {error_file} | awk -F'Library type determined: ' '{{print $2}}'",
+            shell=True
+        ).decode("utf-8").strip()
+        table_data[index].update({
+            'lib_types': lib_types,
+        })
+
     except (
         FileNotFoundError, json.decoder.JSONDecodeError, sp.CalledProcessError
-        ):
-        table_data[index] = {
-            key: np.nan for key in [
-                'pred_org', 'pred_orient', 'pred_adapter',
-                'pred_length_min_1', 'pred_length_max_1',
-                '1_tpm_1', '1_org_1', '1_tpm_2', '1_org_2',
-                '2_tpm_1', '2_org_1', '2_tpm_2', '2_org_2',
-                '1_adapt_1', '1_percent_1', '1_adapt_2', '1_percent_2',
-                '2_adapt_1', '2_percent_1', '2_adapt_2', '2_percent_2',
-                'processing_time', 'extract_time', 'kallisto_time',
-                'align_time',  'cutadapt_time', 'total_time'
-                ]
-                }
-    continue
-
-print(pd.DataFrame.from_dict(table_data, orient='index'))
+    ):
+        continue
 
 # Concatenate the original data with the graph data
 final_result = pd.concat([data, pd.DataFrame.from_dict(table_data, orient='index')], axis=1, join="inner")
 
+print(final_result)
+
 # Comparison of results
 final_result['match_org'] = np.where(
-                final_result['org'] == final_result['pred_org'],
-                True,
-                np.where(
-                    pd.isna(final_result['pred_org']),
-                    'Undecided',
-                    False
-                )
-            )
+    pd.isna(final_result['pred_org']),
+    'Undecided',
+    np.where(
+        pd.isna(final_result['org']),
+        'No_metadata',
+        np.where(
+            final_result['org'] == final_result['pred_org'],
+            'Match',
+            'Mismatch'
+        )
+    )
+)
 final_result['match_orient'] = np.where(
-    final_result['pred_orient'] ==
-    final_result['orient'], True, False)
-final_result['match_adapter'] = final_result.apply(
-    lambda x: str(x.pred_adapter) in str(x.adapter), axis=1)
+    pd.isna(final_result['pred_orient']),
+    'Undecided',
+    np.where(
+        pd.isna(final_result['orient']),
+        'No_metadata',
+        np.where(
+            final_result['orient'] == final_result['pred_orient'],
+            'Match',
+            'Mismatch'
+        )
+    )
+)
+final_result['match_adapter'] = np.where(
+    pd.isna(final_result['pred_adapter']),
+    'Undecided',
+    np.where(
+        pd.isna(final_result['adapter']),
+        'No_metadata',
+        np.where(
+            final_result.apply(
+                lambda x: str(x.pred_adapter) in str(x.adapter), axis=1
+            ),
+            'Match',
+            'Mismatch'
+        )
+    )
+)
 final_result['match_length'] = np.where(
-    final_result['pred_length_max_1'] ==
-    final_result['length_max_1'], True, False)
+    pd.isna(final_result['pred_length_max_1']),
+    'Undecided',
+    np.where(
+        pd.isna(final_result['length_max_1']),
+        'No_metadata',
+        np.where(
+            (final_result['pred_length_max_1'] == final_result['length_max_1']) |
+            (final_result['pred_length_max_1'].apply(lambda x: round(x)) == final_result['length_max_1']) |
+            (final_result['pred_length_max_1'].apply(lambda x: round(x - 1)) == final_result['length_max_1']) |
+            (final_result['pred_length_max_1'] + final_result['pred_length_max_2'] == final_result['length_max_1']) |
+            (final_result[['pred_length_mean_1', 'pred_length_mean_2']].apply(lambda x: math.floor(x.sum()), axis=1) == final_result['length_max_1']) |
+            (final_result[['pred_length_mean_1', 'pred_length_mean_2']].apply(lambda x: round(x.sum()), axis=1) == final_result['length_max_1']),
+            'Match',
+            'Mismatch'
+        )
+    )
+)
 
 # Write result to csv file
 pd.DataFrame.to_csv(final_result, f"{run_id}_result.csv",

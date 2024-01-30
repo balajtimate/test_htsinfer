@@ -1,6 +1,8 @@
 __pycache__
 .pytest_cache
-results_htsinfer
-results_sra_downloads
+*results*
+*_tests
 Log.out
 .vscode
+*.csv
+*.png
