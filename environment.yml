@@ -1,0 +1,8 @@
+name: test_htsinfer
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - htsinfer
+  - nextflow
+  - python >=3.8, <=3.10
