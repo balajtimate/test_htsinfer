@@ -1,0 +1,11 @@
+name: test_htsinfer
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc
+  - nextflow
+  - pip>=20.2.3
+  - python>=3.8, <=3.10
+  - pip:
+    - git+https://github.com/zavolanlab/htsinfer@dev
