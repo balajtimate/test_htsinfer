@@ -3,19 +3,53 @@
 This the repository for the testing [HTSinfer](https://github.com/zavolanlab/htsinfer). 
 It contains the data and the scripts used to generate the plots.
 
-### Structure
+## Installation
 
-- 0_zavolan_rnaseq_samples_extract.py - Extract the metadata from the Zavolan lab sequenced RNA-Seq samples
-- 1_cluster_test_strategy.py - Run HTSinfer on downloaded samples on the cluster
-- 2_get_results.py - Obtain the results for predicted org/adapter/orientation etc. as well as performance metrics
-- 3_create_stat_plots.ipynb - Notebook collection of the generated stats/plots.
+### 1. Clone the repository
 
-The data used:
+Go to the desired directory/folder on your file system, then clone/get the 
+repository and move into the respective directory with:
 
-- mined_test_data.tsv - Collection of 770 Illumina RNA-Seq samples downloaded from SRA, from various organisms.
-- zavolan_rnaseq_samples.tsv - Extracted from sequencing samples used in the Zavolan lab.
-- zavolan_rnaseq_samples_filtered.tsv - A filtered table of 101 samples where the metadata was correct, used for testing.
+```bash
+git clone https://github.com/zavolanlab/test_htsinfer
+cd test_htsinfer
+```
 
-A GoogleDoc with the progress and ideas for the tool [can be found here.](https://docs.google.com/document/d/12vBwjZ7N6aS9bBJq-hs5RKqWOneRg3D8Q4-41elksR8/edit?usp=sharing)
+### 2. Conda and Mamba installation
 
-This repo is continously updated to keep track with the publication.
+Workflow dependencies can be conveniently installed with the [Conda](https://docs.conda.io/projects/conda/en/stable/)
+package manager. We recommend that you install [Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
+for your system (Linux). Be sure to select the Python 3 option. 
+
+```bash
+conda install -y mamba -n base -c conda-forge
+```
+
+### 3. Create environment
+
+Install the remaining dependencies with:
+```bash
+mamba env create -f environment.yml
+```
+
+### 4. Activate environment
+
+Activate the Conda environment with:
+
+```bash
+conda activate test_htsinfer
+```
+
+## Running the workflow
+
+To start the workflow, in your activated `test_htsinfer` conda environment, run
+
+```bash
+nextflow main.nf -profile conda
+```
+> Currently, running the workflow is only supported with conda
+
+For running on SLURM:
+```bash
+nextflow main.nf -profile slurm,conda
+```
