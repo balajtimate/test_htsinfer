@@ -6,6 +6,8 @@ process HTSINFER_SE {
     label 'htsinfer'
     tag "${sample}"
     publishDir "${params.htsinfer_out_dir}/${sample}", mode: 'copy', pattern: "*"
+    publishDir "${params.htsinfer_out_dir}/_results", mode: 'copy', pattern: "*_result.json"
+    publishDir "${params.htsinfer_out_dir}/_results", mode: 'copy', pattern: "*_error.txt"
 
     input:
     tuple val(sample), path(fq1)
@@ -17,7 +19,7 @@ process HTSINFER_SE {
         """
         htsinfer \
             --output-directory ${params.htsinfer_out_dir}/${sample} \
-            --temporary-directory $TMP \
+            --temporary-directory ${params.htsinfer_out_dir}/temp \
             --cleanup-regime KEEP_ALL \
             --records ${params.records} \
             --threads ${params.threads} \
@@ -40,6 +42,8 @@ process HTSINFER_PE {
     label 'htsinfer'
     tag "${sample}"
     publishDir "${params.htsinfer_out_dir}/${sample}", mode: 'copy', pattern: "*"
+    publishDir "${params.htsinfer_out_dir}/_results", mode: 'copy', pattern: "*_result.json"
+    publishDir "${params.htsinfer_out_dir}/_results", mode: 'copy', pattern: "*_error.txt"
 
     input:
     tuple val(sample), path(fq1), path(fq2)
@@ -49,9 +53,10 @@ process HTSINFER_PE {
 
     script:
         """
+        # Run htsinfer, which generates the random identifier
         htsinfer \
             --output-directory ${params.htsinfer_out_dir}/${sample} \
-            --temporary-directory $TMP \
+            --temporary-directory ${params.htsinfer_out_dir}/temp \
             --cleanup-regime KEEP_ALL \
             --records ${params.records} \
             --threads ${params.threads} \
@@ -69,3 +74,4 @@ process HTSINFER_PE {
             2> ${sample}_error.txt
         """
 }
+

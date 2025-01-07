@@ -5,16 +5,16 @@ import json
 import subprocess as sp
 from datetime import datetime
 from pathlib import Path
-import pandas as pd
-import numpy as np
 import math
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
 
-run_id = str(input("Run ID: "))
+run_id = str("1024_mined_test_data_final_0def")
 
 RESULTS_HTS_DIR = (Path(__file__).resolve().parent /
                    "results_htsinfer")
 MINED_DATA = (Path(__file__).resolve().parent /
-              "mined_test_data_all.tsv")
+              "1001_mined_test_data_final.tsv")
 
 # Read in the tsv file
 data = pd.read_csv(MINED_DATA, sep='\t')
@@ -36,7 +36,8 @@ for index, row in data.iterrows():
                         ) as json_file:
                 result_model = json.load(json_file)
                 table_data[index] = {
-                    'pred_org': result_model['library_source']['file_1']['short_name'],
+                    'pred_org_1': result_model['library_source']['file_1']['short_name'],
+                    'pred_org_2': np.nan,
                     'pred_orient': result_model['read_orientation']['file_1'],
                     'pred_adapter': result_model['read_layout']['file_1']['adapt_3'],
                     'pred_length_min_1': result_model['library_stats']['file_1']['read_length']['min'],
@@ -101,7 +102,8 @@ for index, row in data.iterrows():
             ) as json_file:
                 result_model = json.load(json_file)
                 table_data[index] = {
-                    'pred_org': result_model['library_source']['file_1']['short_name'],
+                    'pred_org_1': result_model['library_source']['file_1']['short_name'],
+                    'pred_org_2': result_model['library_source']['file_2']['short_name'],
                     'pred_orient': result_model['read_orientation']['relationship'],
                     'pred_adapter': result_model['read_layout']['file_1']['adapt_3'],
                     'pred_length_min_1': result_model['library_stats']['file_1']['read_length']['min'],
@@ -176,11 +178,11 @@ for index, row in data.iterrows():
 
         # 1. Processing reads
         proc_start = datetime.strptime(sp.check_output(
-            f"grep 'Processing read file 1:' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"grep 'Processing read file 1:' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         proc_end = datetime.strptime(sp.check_output(
-            f"awk -v n=2 '/Processing read file 1:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=2 '/Processing read file 1:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -189,11 +191,11 @@ for index, row in data.iterrows():
 
         # 2. Extract read length
         extract_start = datetime.strptime(sp.check_output(
-            f"awk -v n=2 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=2 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         extract_end = datetime.strptime(sp.check_output(
-            f"awk -v n=3 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=3 '/Determining library statistics/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -202,11 +204,11 @@ for index, row in data.iterrows():
 
         # 3. Kallisto quantification
         kallisto_start = datetime.strptime(sp.check_output(
-            f"awk -v n=3 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=3 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         kallisto_end = datetime.strptime(sp.check_output(
-            f"awk -v n=4 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=4 '/Creating kallisto index for:/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -215,11 +217,11 @@ for index, row in data.iterrows():
 
         # 4. Align reads with STAR
         align_start = datetime.strptime(sp.check_output(
-            f"grep 'Aligning reads with STAR' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"grep 'Aligning reads with STAR' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         align_end = datetime.strptime(sp.check_output(
-            f"awk -v n=1 '/Aligning reads with STAR/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=1 '/Aligning reads with STAR/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -228,11 +230,11 @@ for index, row in data.iterrows():
 
         # 5. Parse with Cutadapt
         cutadapt_start = datetime.strptime(sp.check_output(
-            f"awk -v n=2 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=2 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         cutadapt_end = datetime.strptime(sp.check_output(
-            f"awk -v n=3 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"awk -v n=3 '/Determining read layout/ {{ for (i = 1; i <= n; i++) getline; print }}' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -241,11 +243,11 @@ for index, row in data.iterrows():
 
         # 6. Total time
         total_start = datetime.strptime(sp.check_output(
-            f"grep 'Started HTSinfer' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"grep 'Started HTSinfer' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         total_end = datetime.strptime(sp.check_output(
-            f"grep 'INFO] Done' {error_file} | grep -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
+            f"grep 'INFO] Done' {error_file} | grep -a -oE '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}}'",
             shell=True
         ).decode("utf-8").strip().splitlines()[0], '%Y-%m-%d %H:%M:%S')
         table_data[index].update({
@@ -316,23 +318,33 @@ final_result = pd.concat([data, pd.DataFrame.from_dict(table_data, orient='index
 
 print(final_result)
 
-# Comparison of results
+# Comparison of results with layout condition
 final_result['match_org'] = np.where(
-    pd.isna(final_result['pred_org']),
-    'Undecided',
+    final_result['layout'] == 'SE',
     np.where(
-        pd.isna(final_result['org']),
-        'No_metadata',
+        pd.isna(final_result['pred_org_1']),
+        'Unassigned',
         np.where(
-            final_result['org'] == final_result['pred_org'],
+            final_result['pred_org_1'] == final_result['org'],
             'Match',
             'Mismatch'
+        )
+    ),
+    np.where(
+        # Applies when layout is PE
+        (final_result['pred_org_1'] == final_result['org']) | (final_result['pred_org_2'] == final_result['org']),
+        'Match',
+        np.where(
+            (~pd.isna(final_result['pred_org_1']) & (final_result['pred_org_1'] != final_result['org'])) |
+            (~pd.isna(final_result['pred_org_2']) & (final_result['pred_org_2'] != final_result['org'])),
+            'Mismatch',
+            'Unassigned'
         )
     )
 )
 final_result['match_orient'] = np.where(
     pd.isna(final_result['pred_orient']),
-    'Undecided',
+    'Unassigned',
     np.where(
         pd.isna(final_result['orient']),
         'No_metadata',
@@ -345,7 +357,7 @@ final_result['match_orient'] = np.where(
 )
 final_result['match_adapter'] = np.where(
     pd.isna(final_result['pred_adapter']),
-    'Undecided',
+    'Unassigned',
     np.where(
         pd.isna(final_result['adapter']),
         'No_metadata',
@@ -360,7 +372,7 @@ final_result['match_adapter'] = np.where(
 )
 final_result['match_length'] = np.where(
     pd.isna(final_result['pred_length_max_1']),
-    'Undecided',
+    'Unassigned',
     np.where(
         pd.isna(final_result['length_max_1']),
         'No_metadata',
