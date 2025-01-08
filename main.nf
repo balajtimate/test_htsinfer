@@ -23,11 +23,16 @@ Channel
     .set { input_branches }
 
 workflow {
-    input_branches.se.map { it -> tuple(it[0], it[1]) }.set { se_samples }
-    input_branches.pe.set { pe_samples }
+    if (params.run_mode == 'sra_download') {
 
-    HTSINFER_SE(se_samples)
-    HTSINFER_PE(pe_samples)
+    }
+    if (params.run_mode == 'htsinfer') {
+        input_branches.se.map { it -> tuple(it[0], it[1]) }.set { se_samples }
+        input_branches.pe.set { pe_samples }
+
+        HTSINFER_SE(se_samples)
+        HTSINFER_PE(pe_samples)
+    }
 }
 
 workflow.onComplete {
