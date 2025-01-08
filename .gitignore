@@ -164,4 +164,3 @@ cython_debug/
 .nextflow*
 work
 results*
-samples/*

@@ -1,8 +1,8 @@
 nextflow.enable.dsl = 2
 
 log.info """\
- H T S I N F E R  T E S T - N F   P I P E L I N E
- ===================================
+ HTSinfer testing - N F   P I P E L I N E
+ ========================================
  """
 
 include { HTSINFER_SE; HTSINFER_PE } from './modules/htsinfer.nf'
